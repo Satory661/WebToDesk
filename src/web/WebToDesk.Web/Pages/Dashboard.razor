@@ -1,41 +1,41 @@
 @page "/"
+@inject HttpClient http
 
 <h1>WebToDesk</h1>
 
 <p>Статус: <b>@status</b></p>
 
-<div style="display:flex; gap:12px; flex-wrap:wrap;">
-    <button @onclick="ShowOpenModal">Открыть приложение</button>
-    <button disabled>Открыть Word (позже)</button>
-    <button disabled>Список файлов MinIO (позже)</button>
-</div>
-
-@if (isOpenModal)
-{
-    <div style="margin-top:16px; padding:12px; border:1px solid #cccccc; border-radius:8px; max-width:520px;">
-        <h3>Открываем файл…</h3>
-        <p>Пока это просто макет. Потом тут будет вызов desktop-приложения.</p>
-
-        <div style="display:flex; gap:8px; margin-top:12px;">
-            <button @onclick="CloseOpenModal">Закрыть</button>
-            <button disabled>Продолжить (позже)</button>
-        </div>
-    </div>
-}
+<button @onclick="ShowOpenModal">Открыть приложение</button>
 
 @code {
     string status = "Готово";
-    bool isOpenModal = false;
 
-    void ShowOpenModal()
+    async Task ShowOpenModal()
     {
-        isOpenModal = true;
-        status = "Ожидаю действие пользователя…";
-    }
+        status = "Шаг 1: Отправка POST...";
+        Console.WriteLine(status);
 
-    void CloseOpenModal()
-    {
-        isOpenModal = false;
-        status = "Готово";
+        try
+        {
+            var res = await http.PostAsync("http://localhost:5298/open-app", null);
+
+            status = $"Шаг 2: Получен ответ: {res.StatusCode}";
+            Console.WriteLine(status);
+    
+            if (res.IsSuccessStatusCode)
+            {
+                status = "Шаг 3: Приложение открыто!";
+            }
+            else
+            {
+                status = $"Шаг 3: Ошибка запуска, HTTP {(int)res.StatusCode}";
+            }
+            Console.WriteLine(status);
+        }
+        catch (Exception ex)
+        {
+            status = $"Шаг X: Исключение: {ex.Message}";
+            Console.WriteLine(status);
+        }
     }
 }
