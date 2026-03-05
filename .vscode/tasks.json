@@ -1,0 +1,86 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-desktop",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/desktop/Desktop.App/WebToDesk/WebToDesk.csproj",
+        "-c",
+        "Debug"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "run-api",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/api/WebToDesk.Api/WebToDesk.Api.csproj",
+        "-c",
+        "Debug"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "run-api",
+        "kind": "file",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "line": 1,
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Using launch settings from|Используются параметры запуска из|Building|Сборка",
+          "endsPattern": "Now listening on:"
+        }
+      }
+    },
+
+    {
+      "label": "run-web",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/web/WebToDesk.Web/WebToDesk.Web.csproj",
+        "-c",
+        "Debug"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "run-web",
+        "kind": "file",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "line": 1,
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Using launch settings from|Используются параметры запуска из|Building|Сборка",
+          "endsPattern": "Now listening on:"
+        }
+      }
+    },
+
+    {
+      "label": "start-all",
+      "dependsOrder": "sequence",
+      "dependsOn": ["build-desktop", "run-api", "run-web"],
+      "problemMatcher": []
+    }
+  ]
+}

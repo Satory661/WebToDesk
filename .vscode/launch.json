@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "F5: Start All (desktop + api + web)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "preLaunchTask": "start-all",
+      "url": "http://localhost:5000",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}
