@@ -7,7 +7,9 @@
       "request": "launch",
       "preLaunchTask": "start-all",
       "url": "http://localhost:5000",
-      "webRoot": "${workspaceFolder}"
+      "webRoot": "${workspaceFolder}",
+      "timeout": 60000,
+      "userDataDir": false
     }
   ]
 }

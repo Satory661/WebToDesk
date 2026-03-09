@@ -3,3 +3,5 @@
 .idea/
 *.user
 *.suo
+minio.exe
+mc.exe

@@ -85,3 +85,10 @@ public class OpenAppRequest
 {
     public string SessionId { get; set; } = string.Empty;
 }
+
+
+
+
+
+
+

@@ -2,6 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "terminate-dotnet",
+      "type": "shell",
+      "command": "Get-Process dotnet, minio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Host 'Cleanup done.'",
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "run-minio",
+      "type": "shell",
+      "command": "Start-Process './minio.exe' -ArgumentList 'server', 'C:/minio_data', '--console-address', ':9001' -WindowStyle Hidden",
+      "problemMatcher": []
+    },
+    {
       "label": "build-desktop",
       "type": "process",
       "command": "dotnet",
@@ -13,7 +25,6 @@
       ],
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "run-api",
       "type": "process",
@@ -28,23 +39,14 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "run-api",
-        "kind": "file",
-        "pattern": [
-          {
-            "regexp": "^(.*)$",
-            "file": 1,
-            "line": 1,
-            "message": 1
-          }
-        ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "Using launch settings from|Используются параметры запуска из|Building|Сборка",
+          "beginsPattern": "Building|Сборка",
           "endsPattern": "Now listening on:"
-        }
+        },
+        "pattern": { "regexp": "^(.*)$" }
       }
     },
-
     {
       "label": "run-web",
       "type": "process",
@@ -59,27 +61,31 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "run-web",
-        "kind": "file",
-        "pattern": [
-          {
-            "regexp": "^(.*)$",
-            "file": 1,
-            "line": 1,
-            "message": 1
-          }
-        ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "Using launch settings from|Используются параметры запуска из|Building|Сборка",
+          "beginsPattern": "Building|Сборка",
           "endsPattern": "Now listening on:"
-        }
+        },
+        "pattern": { "regexp": "^(.*)$" }
       }
     },
-
+    {
+      "label": "wait-a-bit",
+      "type": "shell",
+      "command": "Start-Sleep -Seconds 5",
+      "problemMatcher": []
+    },
     {
       "label": "start-all",
       "dependsOrder": "sequence",
-      "dependsOn": ["build-desktop", "run-api", "run-web"],
+      "dependsOn": [
+        "terminate-dotnet",
+        "run-minio",
+        "build-desktop",
+        "run-api",
+        "run-web",
+        "wait-a-bit"
+      ],
       "problemMatcher": []
     }
   ]
