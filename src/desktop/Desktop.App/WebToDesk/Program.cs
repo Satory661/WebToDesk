@@ -28,7 +28,7 @@ static class Program
         app.UseDefaultFiles();
         app.UseStaticFiles();
 
-        // Открыть Word
+        // ── Открыть Word (без файла) ──
         app.MapPost("/open-app", (OpenAppRequest request) =>
         {
             var sessionId = string.IsNullOrWhiteSpace(request.SessionId)
@@ -36,11 +36,42 @@ static class Program
                 : request.SessionId;
 
             AppCommands.RequestOpenWord(sessionId);
-
             return Results.Ok(new { message = "Сигнал получен", sessionId });
         });
 
-        // Статус Word
+        // ── Открыть конкретный файл из MinIO в Word ──
+        app.MapPost("/open-file-in-word", async (OpenFileInWordRequest request) =>
+        {
+            try
+            {
+                // Скачиваем файл из MinIO во временную папку
+                using var httpClient = new HttpClient();
+                var bytes = await httpClient.GetByteArrayAsync(request.MinioUrl);
+
+                var tempDir = Path.Combine(Path.GetTempPath(), "WebToDesk");
+                Directory.CreateDirectory(tempDir);
+                var localPath = Path.Combine(tempDir, request.FileName);
+
+                await File.WriteAllBytesAsync(localPath, bytes);
+
+                // Передаём десктоп-агенту
+                AppCommands.RequestOpenFileInWord(new OpenFileSession
+                {
+                    SessionId = request.SessionId,
+                    LocalPath = localPath,
+                    MinioUrl = request.MinioUrl,
+                    FileName = request.FileName
+                });
+
+                return Results.Ok(new { message = "Открываем в Word", localPath });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Ошибка: {ex.Message}");
+            }
+        });
+
+        // ── Статус Word ──
         app.MapPost("/word-status-update", (WordStatusUpdateRequest dto) =>
         {
             if (string.IsNullOrWhiteSpace(dto.SessionId))
@@ -57,7 +88,7 @@ static class Program
             return Results.Ok(status);
         });
 
-        // ── Чтение DOCX из MinIO → возвращает plain text ──
+        // ── Чтение DOCX → plain text (для браузерного редактора) ──
         app.MapGet("/docx-read", async (string url) =>
         {
             try
@@ -70,14 +101,9 @@ static class Program
 
                 var sb = new StringBuilder();
                 var body = doc.MainDocumentPart?.Document?.Body;
-
                 if (body != null)
-                {
                     foreach (var para in body.Elements<Paragraph>())
-                    {
                         sb.AppendLine(para.InnerText);
-                    }
-                }
 
                 return Results.Ok(new { text = sb.ToString() });
             }
@@ -87,16 +113,14 @@ static class Program
             }
         });
 
-        // ── Сохранение текста обратно в DOCX и загрузка в MinIO ──
+        // ── Сохранение текста → DOCX → MinIO (для браузерного редактора) ──
         app.MapPost("/docx-save", async (DocxSaveRequest req) =>
         {
             try
             {
-                // Скачиваем оригинальный файл из MinIO
                 using var httpClient = new HttpClient();
                 var originalBytes = await httpClient.GetByteArrayAsync(req.Url);
 
-                // Открываем и меняем текст
                 using var ms = new MemoryStream();
                 ms.Write(originalBytes, 0, originalBytes.Length);
                 ms.Position = 0;
@@ -106,36 +130,28 @@ static class Program
                     var body = doc.MainDocumentPart?.Document?.Body;
                     if (body != null)
                     {
-                        // Удаляем все параграфы
                         body.RemoveAllChildren<Paragraph>();
-
-                        // Вставляем новые параграфы из текста
-                        var lines = req.Text.Split('\n');
-                        foreach (var line in lines)
+                        foreach (var line in req.Text.Split('\n'))
                         {
                             var para = new Paragraph(new Run(new Text(line.TrimEnd('\r'))));
                             body.AppendChild(para);
                         }
-
                         doc.MainDocumentPart!.Document.Save();
                     }
                 }
 
-                // Загружаем обновлённый файл обратно в MinIO
                 var content = new ByteArrayContent(ms.ToArray());
                 content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
                 var response = await httpClient.PutAsync(req.Url, content);
-
-                if (response.IsSuccessStatusCode)
-                    return Results.Ok(new { message = "Сохранено" });
-                else
-                    return Results.Problem($"Ошибка загрузки в MinIO: {response.StatusCode}");
+                return response.IsSuccessStatusCode
+                    ? Results.Ok(new { message = "Сохранено" })
+                    : Results.Problem($"Ошибка MinIO: {response.StatusCode}");
             }
             catch (Exception ex)
             {
-                return Results.Problem($"Ошибка сохранения DOCX: {ex.Message}");
+                return Results.Problem($"Ошибка: {ex.Message}");
             }
         });
 
@@ -148,9 +164,25 @@ static class Program
     }
 }
 
+// ── Модели ──
 public class OpenAppRequest
 {
     public string SessionId { get; set; } = string.Empty;
+}
+
+public class OpenFileInWordRequest
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string MinioUrl { get; set; } = string.Empty;
+}
+
+public class OpenFileSession
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string LocalPath { get; set; } = string.Empty;
+    public string MinioUrl { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
 }
 
 public class WordStatusUpdateRequest
@@ -172,7 +204,11 @@ public class DocxSaveRequest
 public static class AppCommands
 {
     private static Action<string>? _openWord;
+    private static Action<OpenFileSession>? _openFileInWord;
 
     public static void Register(Action<string> handler) => _openWord = handler;
+    public static void RegisterOpenFile(Action<OpenFileSession> handler) => _openFileInWord = handler;
+
     public static void RequestOpenWord(string sessionId) => _openWord?.Invoke(sessionId);
+    public static void RequestOpenFileInWord(OpenFileSession session) => _openFileInWord?.Invoke(session);
 }

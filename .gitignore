@@ -8,6 +8,10 @@
 **/wwwroot/_framework/
 **/publish/
 
+# Бинарники MinIO (тяжёлые, у каждого свои)
+minio.exe
+mc.exe
+
 # Данные MinIO (у каждого локальные)
 data/
 
